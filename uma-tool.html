@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trang Lối Tắt - Shortcuts</title>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#031025 0%,#081226 100%);color:#e6eef6;margin:0;min-height:100vh;padding:28px}
+    .wrap{max-width:980px;margin:0 auto}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:20px}
+    h1{font-size:20px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;align-items:center}
+    .btn{background:var(--accent);color:#012;border:none;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:18px}
+    input,button{font-size:14px}
+    input[type=text]{background:var(--glass);border:1px solid rgba(255,255,255,0.03);padding:10px;border-radius:10px;color:inherit}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:8px}
+    .card .title{font-weight:700;word-break:break-word}
+    .card .url{font-size:12px;color:var(--muted);word-break:break-all}
+    .card .actions{margin-top:auto;display:flex;gap:8px}
+    .small{font-size:12px;padding:6px 8px;border-radius:8px}
+    .hint{color:var(--muted);font-size:13px;margin-top:8px}
+    .toolbar{display:flex;gap:8px;align-items:center}
+    .search{padding:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit}
+    .importfile{display:none}
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    @media (max-width:560px){form{grid-template-columns:1fr} .controls{flex-direction:column;align-items:stretch}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Trang lối tắt</h1>
+        <p class="lead">Đặt tên lối tắt và dán đường link — lưu trong trình duyệt (localStorage).</p>
+      </div>
+      <div class="controls">
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Tìm lối tắt..." />
+        </div>
+      </div>
+    </header>
+
+    <form id="addForm" onsubmit="return false;" autocomplete="off">
+      <input id="nameInput" type="text" placeholder="Tên lối tắt (ví dụ: Gmail)" required />
+      <input id="urlInput" type="text" placeholder="Đường link (https://...)" required />
+      <button id="addBtn" class="btn">Thêm</button>
+      <div style="grid-column:1/-1;display:flex;gap:8px;margin-top:6px;">
+        <button id="exportBtn" class="btn ghost small" type="button">Xuất JSON</button>
+        <label class="btn small ghost" for="importFile">Nhập JSON</label>
+        <input id="importFile" class="importfile" type="file" accept="application/json" />
+        <button id="clearBtn" class="btn ghost small" type="button">Xóa toàn bộ</button>
+      </div>
+    </form>
+
+    <div id="grid" class="grid" aria-live="polite"></div>
+
+    <p class="hint">Mẹo: click &quot;Mở&quot; để mở link trong tab mới, &quot;Sao chép&quot; để copy đường link. Lối tắt lưu trên máy bạn.</p>
+
+    <footer>Phiên bản đơn giản • Lưu bằng localStorage</footer>
+  </div>
+
+<script>
+// Shortcuts app - single-file
+const KEY = 'shortcuts_v1';
+let items = [];
+
+function isValidUrl(str){
+  try{ new URL(str); return true } catch(e){ return false }
+}
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(items)); }
+function load(){ try{ items = JSON.parse(localStorage.getItem(KEY) || '[]') || []; }catch(e){ items = []; } }
+
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+function render(filter=''){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  const q = filter.trim().toLowerCase();
+  items.filter(it => !q || it.name.toLowerCase().includes(q) || it.url.toLowerCase().includes(q))
+       .forEach(it => grid.appendChild(cardFor(it)));
+}
+
+function cardFor(it){
+  const el = document.createElement('div'); el.className='card';
+  const title = document.createElement('div'); title.className='title'; title.textContent = it.name;
+  const url = document.createElement('div'); url.className='url'; url.textContent = it.url;
+  const actions = document.createElement('div'); actions.className='actions';
+
+  const open = document.createElement('button'); open.className='small btn ghost'; open.textContent='Mở';
+  open.onclick = () => window.open(it.url, '_blank');
+
+  const copy = document.createElement('button'); copy.className='small btn ghost'; copy.textContent='Sao chép';
+  copy.onclick = async () => { try{ await navigator.clipboard.writeText(it.url); copy.textContent='Đã sao chép'; setTimeout(()=>copy.textContent='Sao chép',900); }catch(e){ alert('Không thể sao chép'); } };
+
+  const edit = document.createElement('button'); edit.className='small btn'; edit.textContent='Sửa';
+  edit.onclick = () => startEdit(it.id);
+
+  const del = document.createElement('button'); del.className='small btn ghost'; del.textContent='Xóa';
+  del.onclick = () => { if(confirm('Xác nhận xóa lối tắt này?')){ items = items.filter(x=>x.id!==it.id); save(); render(document.getElementById('search').value); } };
+
+  actions.appendChild(open); actions.appendChild(copy); actions.appendChild(edit); actions.appendChild(del);
+
+  el.appendChild(title); el.appendChild(url); el.appendChild(actions);
+  return el;
+}
+
+function startEdit(id){
+  const it = items.find(z=>z.id===id); if(!it) return;
+  document.getElementById('nameInput').value = it.name;
+  document.getElementById('urlInput').value = it.url;
+  const addBtn = document.getElementById('addBtn'); addBtn.textContent = 'Lưu';
+  addBtn.dataset.editId = id;
+}
+
+function resetForm(){ document.getElementById('nameInput').value=''; document.getElementById('urlInput').value=''; const addBtn = document.getElementById('addBtn'); addBtn.textContent='Thêm'; delete addBtn.dataset.editId; }
+
+// Events
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('nameInput').value.trim();
+  let url = document.getElementById('urlInput').value.trim();
+  if(!name || !url){ alert('Vui lòng nhập tên và đường link'); return; }
+  if(!/^https?:\/\//i.test(url)) url = 'https://' + url; // nếu người dùng quên https
+  if(!isValidUrl(url)){ alert('Đường link không hợp lệ'); return; }
+  const addBtn = document.getElementById('addBtn');
+  const editId = addBtn.dataset.editId;
+  if(editId){
+    const it = items.find(x=>x.id===editId);
+    if(it){ it.name = name; it.url = url; }
+  } else {
+    items.unshift({id:uid(), name, url});
+  }
+  save(); render(document.getElementById('search').value);
+  resetForm();
+});
+
+document.getElementById('search').addEventListener('input', e=> render(e.target.value));
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(confirm('Xóa toàn bộ lối tắt?')){ items = []; save(); render(); }
+});
+
+// Export JSON
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const data = JSON.stringify(items, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'shortcuts.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+});
+
+// Import JSON
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!Array.isArray(parsed)) throw new Error('JSON không hợp lệ');
+      // Validate items
+      const ok = parsed.every(p => p && typeof p.name==='string' && typeof p.url==='string');
+      if(!ok) throw new Error('JSON thiếu trường name/url');
+      // Give imported items new ids if needed
+      const prepared = parsed.map(p=>({id:p.id || uid(), name:p.name, url:p.url}));
+      items = prepared.concat(items);
+      save(); render();
+      alert('Nhập thành công');
+    }catch(err){ alert('Lỗi khi nhập JSON: '+err.message); }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+});
+
+// Init
+load(); render();
+
+// Keyboard: Enter in URL field triggers Add
+document.getElementById('urlInput').addEventListener('keypress', (e)=>{ if(e.key==='Enter'){ document.getElementById('addBtn').click(); } });
+
+</script>
+</body>
+</html>
